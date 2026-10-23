@@ -8,7 +8,7 @@ The specification defines exactly how words are identified, counted, sorted, and
 
 ## 2. Function Interface
 
-The program must be written in Python 3.
+The program must be written in Python 3.9 or newer (the return type annotation uses built-in generic types).
 
 The function must be named `top_words` and located in `top_words.py`.
 
@@ -30,7 +30,7 @@ A character belongs to a word if Python's `str.isalpha()` returns `True`.
 
 Spaces, punctuation, digits, symbols, and other non-alphabetic characters separate words.
 
-Apostrophes and hyphens are treated as separators. Combining marks that do not satisfy `isalpha()` are also separators. Unicode normalization is not performed.
+Apostrophes and hyphens are treated as separators. Combining marks that do not satisfy `isalpha()` are also separators. Unicode normalization is not performed. For example, precomposed accented letters and their decomposed spellings may be treated differently.
 
 Examples:
 
@@ -46,7 +46,7 @@ Examples:
 
 The function must ignore letter case.
 
-After splitting the text into words, each word must be converted using Python's `str.casefold()` method.
+After splitting the text into words, each word must be converted using Python's `str.casefold()` method. Word splitting takes place **before** case folding; the function must not split the resulting folded string again.
 
 Words with the same resulting string are counted together.
 
@@ -58,6 +58,7 @@ Examples:
 | `HELLO hello` | `[("hello", 2)]` |
 | `Москва МОСКВА` | `[("москва", 2)]` |
 | `Қазақ қазақ ҚАЗАҚ` | `[("қазақ", 3)]` |
+| `Straße STRASSE` | `[("strasse", 2)]` |
 
 ## 5. Word Counting
 
@@ -105,6 +106,7 @@ Examples:
 | `a b c d e f g h i j k` | `[("a", 1), ("b", 1), ("c", 1), ("d", 1), ("e", 1), ("f", 1), ("g", 1), ("h", 1), ("i", 1), ("j", 1)]` |
 | Empty string | `[]` |
 | `123 !!!` | `[]` |
+| `apple apple apple apple apple apple apple apple apple apple zebra zebra` | `[("apple", 10), ("zebra", 2)]` |
 
 ## 8. Multilingual Support
 
@@ -124,7 +126,7 @@ Examples:
 
 ## 9. Input Validation
 
-The function accepts only string values.
+The function accepts only string values. The type check must occur before trying to tokenize the input.
 
 If the input is not a string, it must raise `TypeError`.
 
@@ -147,7 +149,18 @@ top_words("")       # Returns []
 - Each returned frequency must be a positive integer.
 - Every returned word must be normalized using `casefold()`.
 
-## 11. Acceptance Criteria
+## 11. Additional Unicode Examples
+
+These examples clarify the processing order and the decision not to normalize Unicode.
+
+| Input | Expected output |
+|---|---|
+| `İ i` | `[("i", 1), ("i\u0307", 1)]` |
+| `café cafe\u0301` | `[("cafe", 1), ("café", 1)]` |
+
+The first example has two different keys: `"i"` and `"i\u0307"` (letter i plus combining dot). The second example uses precomposed `é` and decomposed `e` plus combining mark; the combining mark is a separator. These are explicit consequences of the chosen rules, not language-aware tokenization.
+
+## 12. Acceptance Criteria
 
 The implementation is correct if:
 
