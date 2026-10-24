@@ -1,64 +1,52 @@
 # LLM Review — Top Words Specification
 
-## Model Used
+## Model and review context
 
-OpenAI ChatGPT, GPT-6.
+**Review model:** OpenAI GPT-6 (ChatGPT).
 
-Review performed on October 23, 2026, using the attached `spec.md` in this conversation. This review replaces the unfilled template in the original pull request.
+**Review date:** October 24, 2026.
 
-## Review Prompt
+**Source:** The revised `spec.md`, incorporating the instructor's eight comments from an earlier Claude Opus 5.5 (medium effort) review.
 
-Review the attached `spec.md` for the Top Words problem as a strict software specification reviewer. Check for ambiguous or missing requirements, contradictory examples, case-folding and Unicode edge cases, deterministic counting and sorting, the correct Python version, and testable acceptance criteria. For each issue, explain why it matters and suggest a concrete correction. Then review the corrected specification and check each expected output against a Python implementation.
+## Exact prompt used for the final review
 
-The complete source for this review was the `spec.md` file in this same submission. The implementation and test checks were performed after updating that specification.
+> Review the revised Top Words specification (`spec.md`) as a strict software-specification reviewer. Check whether it responds to all eight instructor comments: (1) Unicode code-point ordering instead of Kazakh alphabetical ordering, (2) interpreting Unicode escape sequences in example inputs, (3) Russian stress-mark and decomposed Cyrillic examples, (4) `str` subclasses, (5) redundant string immutability rule, (6) stopwords, (7) alphabets outside English/Russian/Kazakh, and (8) exact output container types. Check for any remaining contradictions, mismatches between rules and examples, and underspecified behavior. Do not invent requirements; distinguish reasonable design decisions from defects. Check the revised examples against a Python reference implementation. Report the findings and the test outcome.
 
-## Initial Review — Issues Found
+The `spec.md` submitted alongside this review is the complete specification being reviewed.
 
-1. **Python version was underspecified.** The original document said "Python 3", but its annotation `list[tuple[str, int]]` requires Python 3.9 or later. On some older Python 3 versions, the annotation will not work as written.
-   - **Correction:** Specify Python 3.9 or newer.
+## Final LLM review output (GPT-6)
 
-2. **Case folding can change the number or identity of Unicode characters.** Although the original text said to call `casefold()` after tokenizing, there was no edge-case example that distinguished this from case folding before tokenizing.
-   - **Counterexample:** `İ i` produces `[('i', 1), ('i\u0307', 1)]` if tokens are obtained before case folding. The second key contains a combining dot; re-tokenizing afterward could give a different result.
-   - **Correction:** State explicitly that no second tokenization takes place, and include this example.
+**Overall assessment:** The revised specification consistently defines the input type, word-tokenization process, case folding, counting, tie-break order and output structure. All eight instructor issues have been addressed. The revised examples agree with the stated algorithm in the executed reference implementation. No further blocking contradiction was found in this review.
 
-3. **Unicode normalization was specified but not illustrated with a distinguishing example.** A developer could wrongly assume that visually similar composed and decomposed forms should be equivalent.
-   - **Counterexample:** `café cafe\u0301` produces `[('cafe', 1), ('café', 1)]` under the chosen rule because the combining mark is a separator and normalization is not performed.
-   - **Correction:** Add the concrete test case and explain the behavior.
+### Instructor issues verified
 
-4. **The ten-result limit needed stronger boundary examples.** The original specification covered eleven tied words, but not a case where the same two words have very different frequencies.
-   - **Correction:** Add an example with `apple` occurring ten times and `zebra` twice to confirm that counts are preserved.
+1. **Kazakh sorting:** Resolved. Section 6 now specifies comparison by increasing Unicode code point, not by a Kazakh-language alphabet. The explicit `сол сәлем` example returns `[("сол", 1), ("сәлем", 1)]`.
+2. **Unicode escape notation:** Resolved. Section 11 identifies its input cells as Python string literals, with surrounding quotes. Therefore the escape in `"café cafe\u0301"` represents a real combining mark rather than literal backslash and digits.
+3. **Russian combining marks:** Resolved. Section 11 includes `"моло\u0301ко"` returning `[("ко", 1), ("моло", 1)]` and `"и\u0306"` returning `[("и", 1)]`. The effects are consistent with splitting on non-`isalpha()` characters.
+4. **`str` subclasses:** Resolved. Section 9 explicitly requires `isinstance(text, str)`, which accepts a subclass of `str`.
+5. **Redundant immutability rule:** Resolved. The bullet requiring the function not to modify its immutable string argument has been removed.
+6. **Stopwords:** Resolved. Section 1 states that stopwords remain in the results, even when they dominate counts. This matches the rule in Section 8.
+7. **Other scripts:** Resolved. Section 8 explicitly says that characters from other scripts are also tokenized when `str.isalpha()` returns `True`. Support is not restricted to three alphabets.
+8. **Concrete output type:** Resolved. Section 2 requires a concrete Python `list` of concrete 2-tuples and exact equality (`==`) with example outputs; generators or custom tuple-like outputs do not qualify.
 
-5. **The existing word-splitting decision is unusual for natural language but unambiguous.** For example, `don't` becomes `don` and `t`. This follows the explicitly defined `isalpha()` rule, so it is not a contradiction.
-   - **Decision:** Keep the rule rather than silently replace it with a different linguistic convention.
+### Remaining considerations
 
-## My Evaluation and Changes
+- Unicode-aware word identification here is deliberately **not** linguistically complete. It can separate decomposed accented or stressed spellings into multiple tokens. This behavior is explicitly documented and illustrated, so it is not a contradiction.
+- Unicode code-point tie-breaking is deliberately **not** locale-aware alphabetization. The documentation now says so, preventing accidental implementation changes.
+- The specification intentionally provides no strict performance bound or maximum input length. This is explicitly acknowledged as out of scope in the acceptance section.
 
-I accepted issues 1–4 and revised `spec.md` to clarify the Python version, processing order, Unicode behavior, and test coverage. I kept the apostrophe and hyphen behavior because the assignment allows a precise documented choice, and changing it is not required.
+**Final review decision:** No unresolved issue was identified that prevents implementing the specified behavior deterministically. This is a targeted review, not a formal verification of all possible Unicode strings.
 
-I did not accept the idea that all visually equivalent Unicode strings must be normalized. The chosen no-normalization rule is intentional, deterministic, and has explicit counterexamples. No review claims need to be struck through as factually false.
+## My evaluation and changes made
 
-## Final LLM Review of Revised Specification
+I accepted all eight instructor comments and changed the corresponding sections of `spec.md`. I kept the original design choices (no stopword removal, no Unicode normalization, and code-point tie-breaking) because the feedback identified documentation issues, not incorrect requirements. No output from this final LLM review was deemed incorrect or irrelevant, so no strikethrough is used.
 
-After the changes, the specification defines:
+## Independent implementation verification
 
-- the exact interface and supported Python versions;
-- a word boundary using `str.isalpha()` and separation on other characters;
-- no Unicode normalization and a defined tokenization-before-case-folding order;
-- deterministic counting, descending frequency, Unicode string-order tie-breaking, and truncation to ten results;
-- multilingual examples, empty input, and invalid input handling;
-- concrete cases that disambiguate each significant design choice.
+I ran a local Python reference implementation using character-by-character `isalpha()` tokenization, `casefold()` on complete tokens, a `Counter`, and sorting by `(-frequency, word)`.
 
-**Final review outcome:** No unresolved contradictions or missing behavior were found in the reviewed requirements. The selected approach is not a full linguistic tokenizer, but that limitation is explicitly specified and testable. This is a review conclusion, not a claim that all conceivable Unicode cases were formally proven.
+- **28/28 example rows** in the revised specification matched their expected outputs exactly.
+- **3/3 invalid-type checks** (`None`, `123`, `[]`) raised `TypeError` as required.
+- A `str` subclass input was additionally accepted, as required.
 
-## Implementation Verification
-
-A Python implementation was generated for verification (not submitted as part of the PR). It used a character-by-character `isalpha()` tokenizer, `casefold()` on completed tokens, `collections.Counter`, and sorting by `(-count, word)`, returning the first ten tuples. It rejected non-string inputs with `TypeError`.
-
-The implementation was executed against **25 input/output example rows** extracted from the revised `spec.md`:
-
-- **25 passed, 0 failed.**
-- Three additional invalid-input checks (`None`, `123`, `[]`) correctly raised `TypeError`.
-
-In particular, the implementation matched the examples for punctuation, apostrophes, hyphens, digits, English/Russian/Kazakh case folding, Unicode combining marks, tied scores, and the ten-result limit.
-
-The local verification code is not part of this assignment's commit because the requested submission consists of `spec.md` and `llm-review.md` only.
+The verification implementation was used locally and is not included in the PR because the assignment asks for the two Markdown files only.

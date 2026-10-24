@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The goal is to find the 10 most frequently used words in a news article. The program must support English, Russian, and Kazakh text.
+The goal is to find the 10 most frequently used words in a news article. The program must support English, Russian, and Kazakh text. **Common words (stopwords) are intentionally included**: this program counts all tokens that match its word definition, even if the results mostly contain words such as `the`, `и`, `в`, or `мен`.
 
 The specification defines exactly how words are identified, counted, sorted, and returned.
 
@@ -18,7 +18,7 @@ def top_words(text: str) -> list[tuple[str, int]]:
 
 Input: a string containing article text.
 
-Output: a list of tuples. Each tuple contains a word and the number of times it appears.
+Output: a concrete Python `list` containing concrete 2-element `tuple` objects `(word: str, count: int)`, not a generator or custom tuple-like object. Every displayed expected output must compare equal using Python `==` to the returned list, including its order and numeric counts.
 
 The function must return the result, not print it.
 
@@ -78,7 +78,7 @@ Examples:
 
 Words must first be sorted by frequency in descending order.
 
-If multiple words have the same frequency, they must be sorted in ascending lexicographical order according to Python's default Unicode string comparison.
+If multiple words have the same frequency, sort their case-folded keys **by increasing Unicode code point**, as Python compares strings by code points. This is **not language-specific alphabetical or locale-aware sorting**, especially for Kazakh.
 
 The original order of words in the article must not affect the final order.
 
@@ -89,6 +89,7 @@ Examples:
 | `dog cat bird` | `[("bird", 1), ("cat", 1), ("dog", 1)]` |
 | `banana apple banana apple` | `[("apple", 2), ("banana", 2)]` |
 | `cat dog cat apple dog` | `[("cat", 2), ("dog", 2), ("apple", 1)]` |
+| `сол сәлем` | `[("сол", 1), ("сәлем", 1)]` |
 
 ## 7. Number of Results
 
@@ -112,7 +113,7 @@ Examples:
 
 The function must support English, Russian, and Kazakh words in the same input.
 
-All languages follow the same rules for word identification, counting, and sorting.
+All languages follow the same rules for word identification, counting, and sorting. The tokenizer also accepts alphabetic characters from **other writing systems** (such as Arabic and Chinese) and letter-like Unicode characters such as `ª` when `str.isalpha()` returns `True`; these are not rejected because they are outside the three target languages.
 
 No translation, stemming, or removal of common words is performed.
 
@@ -126,7 +127,7 @@ Examples:
 
 ## 9. Input Validation
 
-The function accepts only string values. The type check must occur before trying to tokenize the input.
+The function accepts values satisfying `isinstance(text, str)`, **including subclasses of `str`**. It must not require `type(text) is str`. The type check must occur before trying to tokenize the input.
 
 If the input is not a string, it must raise `TypeError`.
 
@@ -141,7 +142,6 @@ top_words("")       # Returns []
 
 ## 10. Additional Requirements
 
-- The function must not modify its input.
 - The function must not read or write files.
 - The function must not access the network.
 - The function must not print anything.
@@ -151,14 +151,16 @@ top_words("")       # Returns []
 
 ## 11. Additional Unicode Examples
 
-These examples clarify the processing order and the decision not to normalize Unicode.
+These examples clarify the processing order and the decision not to normalize Unicode. **Every input cell in this section is a Python string literal**, including surrounding quotes. Thus `\u0301` means the actual combining acute accent U+0301, not six literal source-text characters; likewise `\u0306` means U+0306. The expected outputs use Python literal notation too.
 
-| Input | Expected output |
+| Input (Python string literal) | Expected output |
 |---|---|
-| `İ i` | `[("i", 1), ("i\u0307", 1)]` |
-| `café cafe\u0301` | `[("cafe", 1), ("café", 1)]` |
+| `"İ i"` | `[("i", 1), ("i\u0307", 1)]` |
+| `"café cafe\u0301"` | `[("cafe", 1), ("café", 1)]` |
+| `"моло\u0301ко"` | `[("ко", 1), ("моло", 1)]` |
+| `"и\u0306"` | `[("и", 1)]` |
 
-The first example has two different keys: `"i"` and `"i\u0307"` (letter i plus combining dot). The second example uses precomposed `é` and decomposed `e` plus combining mark; the combining mark is a separator. These are explicit consequences of the chosen rules, not language-aware tokenization.
+The first example has two different keys: `"i"` and `"i\u0307"` (letter i plus combining dot). The second example uses precomposed `é` and decomposed `e` plus combining mark; the combining mark is a separator. Russian stress marks similarly split `"моло\u0301ко"` into `"моло"` and `"ко"`. A decomposed short-i spelling `"и\u0306"` becomes `"и"`, not `"й"`. These are explicit consequences of the chosen rules, not language-aware tokenization.
 
 ## 12. Acceptance Criteria
 
@@ -167,7 +169,9 @@ The implementation is correct if:
 1. It follows all word identification rules.
 2. It counts words without case sensitivity.
 3. It correctly supports English, Russian, and Kazakh.
-4. It sorts by frequency and then alphabetically.
+4. It sorts by descending frequency and then by increasing Unicode code point of the case-folded words (not by any language-specific alphabet).
 5. It returns no more than 10 words.
 6. It handles empty input and invalid input types.
-7. It produces the expected output for every example in this specification.
+7. It produces the expected output for every example in this specification using exact Python `==` equality.
+
+No maximum text length or performance bound is mandated by this specification; those are deliberately out of scope.
